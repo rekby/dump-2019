@@ -1,0 +1,6 @@
+<yandex>
+    <merge_tree>
+        <old_parts_lifetime>10</old_parts_lifetime>
+        <temporary_directories_lifetime>10</temporary_directories_lifetime>
+    </merge_tree>
+</yandex>

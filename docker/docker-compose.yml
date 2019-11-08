@@ -1,0 +1,107 @@
+version: '3'
+volumes:
+  elasticsearch-data:
+services:
+  clickhouse:
+    image: yandex/clickhouse-server:19.15.2.2
+    restart: "no"
+    volumes:
+      - ./clickhouse-config.xml:/etc/clickhouse-server/config.d/test.xml
+      - ./dataset:/dataset
+      - ./scripts:/scripts
+  memsql:
+    image: memsql/cluster-in-a-box:6.8.9-24b9cbd386-1.8.2-1.2.3
+    restart: "no"
+    env_file:
+      - memsql.env
+    volumes:
+      - ./dataset:/dataset:ro
+      - ./scripts:/scripts
+    ports:
+      - "8080:8080"
+  postgres1:
+    image: postgres:11.5
+    restart: "no"
+    volumes:
+      - ./dataset:/dataset:ro
+      - ./scripts:/scripts
+      - ./postgres/postgres.conf:/postgres.conf
+  postgres2: # partitioning
+    image: postgres:11.5
+    restart: "no"
+    volumes:
+      - ./dataset:/dataset:ro
+      - ./scripts:/scripts
+      - ./postgres/postgres.conf:/postgres.conf
+  postgres3: # columnstorage
+    build:
+      dockerfile: postgres3.docker
+      context: .
+    restart: "no"
+    command: postgres -c config_file=/postgres.conf
+    volumes:
+      - ./dataset:/dataset:ro
+      - ./scripts:/scripts
+      - ./postgres/postgres-cstore.conf:/postgres.conf
+  postgres4: # columnstorage partitioned
+    build:
+      dockerfile: postgres3.docker
+      context: .
+    restart: "no"
+    command: postgres -c config_file=/postgres.conf
+    volumes:
+      - ./dataset:/dataset:ro
+      - ./scripts:/scripts
+      - ./postgres/postgres-cstore.conf:/postgres.conf
+  postgres-brin:
+    image: postgres:11.5
+    restart: "no"
+    volumes:
+      - ./dataset:/dataset:ro
+      - ./scripts:/scripts
+      - ./postgres/postgres.conf:/postgres.conf
+  timescale:
+    image: timescale/timescaledb:latest-pg11
+    restart: "no"
+    volumes:
+      - ./dataset:/dataset:ro
+      - ./scripts:/scripts
+      - ./postgres/postgres.conf:/postgres.conf
+  dataset:
+    image: python:3.7.4
+    volumes:
+      - ./dataset:/dataset:ro
+      - ./datasource:/datasource:ro
+      - ./scripts:/scripts
+  elasticsearch:
+    image: elasticsearch:7.4.2
+    restart: "no"
+    environment:
+      discovery.type: single-node
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+      - ./dataset:/dataset:ro
+      - ./scripts:/scripts
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.4.2
+    restart: "no"
+    links:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+  logstash:
+    image: logstash:7.4.2
+    links:
+      - elasticsearch
+    restart: "no"
+    ports:
+      - "5046:5046"
+    volumes:
+      - ./dataset:/dataset:ro
+      - ./scripts:/scripts
+      - ./elk/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
+      - ./elk/pipelines:/usr/share/logstash/pipeline:ro
+
